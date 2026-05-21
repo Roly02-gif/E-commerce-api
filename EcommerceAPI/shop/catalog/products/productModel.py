@@ -1,4 +1,8 @@
+import uuid
+
 from django.db import models
+
+from shop.catalog.categories.categoryModel import CategoryModel
 
 
 class SizeModel(models.Model):
@@ -19,12 +23,11 @@ class SizeModel(models.Model):
 class ProductModel(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, unique=True, null=False)
+    name = models.CharField(max_length=255, null=False)
     description = models.TextField(blank=True)
     category = models.ForeignKey(
-        "self", on_delete=models.PROTECT, null=True, blank=True
+        CategoryModel, on_delete=models.PROTECT, null=True, blank=True
     )
-    stock_quantity = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -35,7 +38,7 @@ class ProductVariantModel(models.Model):
     product = models.ForeignKey(
         ProductModel, on_delete=models.CASCADE, related_name="variants"
     )
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50, unique=True, blank=True)
     color = models.CharField(max_length=50, blank=True)
     size = models.ForeignKey(SizeModel, on_delete=models.PROTECT, blank=True, null=True)
 
@@ -47,6 +50,19 @@ class ProductVariantModel(models.Model):
         max_digits=10, decimal_places=2, blank=True, null=True
     )
     stock_quantity = models.PositiveIntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            self.sku = self._generate_sku()
+        super().save(*args, **kwargs)
+
+    def _generate_sku(self):
+        name_component = (
+            self.product.name[:3].upper()
+            if len(self.product.name) >= 3
+            else self.product.name.upper()
+        )
+        return f"SKU-{name_component}-{uuid.uuid4().hex[:12].upper()}"
 
     class Meta:
         indexes = [

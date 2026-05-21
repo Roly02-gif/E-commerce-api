@@ -5,7 +5,7 @@ from shop.catalog.products.productSerializer import ProductSerializer
 from shop.permissions import IsAdminOrReadOnly
 
 
-class ViewSet(ModelViewSet):
+class ProductViewSet(ModelViewSet):
     queryset = ProductModel.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAdminOrReadOnly]
