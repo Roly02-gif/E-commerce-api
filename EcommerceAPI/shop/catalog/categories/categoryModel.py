@@ -7,6 +7,9 @@ class CategoryModel(models.Model):
     name = models.CharField(max_length=255, unique=True, null=False)
     description = models.TextField(blank=True)
     parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True)
+    # Ex: {"brand": {"type": "string", "required": True}}
+    attribute_schema = models.JSONField(default=dict, blank=True)
+    variant_attribute_schema = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):

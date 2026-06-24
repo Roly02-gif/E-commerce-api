@@ -9,7 +9,6 @@ from shop.catalog.categories.categoryModel import CategoryModel
 from shop.catalog.products.productModel import (
     ProductModel,
     ProductVariantModel,
-    SizeModel,
 )
 from shop.models import AddressModel, UserModel
 
@@ -115,13 +114,11 @@ class ProductVariantInline(admin.TabularInline):
     extra = 0
     fields = [
         "sku",
-        "color",
-        "size",
         "price",
+        "attributes",
         "compare_price",
         "stock_quantity",
     ]
-    raw_id_fields = ["size"]
 
 
 class ProductAdmin(admin.ModelAdmin):
@@ -132,7 +129,6 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ["name", "category__name"]
 
 
-admin.site.register(SizeModel, SizeAdmin)
 admin.site.register(CategoryModel, CategoryAdmin)
 admin.site.register(UserModel, UserAdmin)
 admin.site.register(ProductModel, ProductAdmin)

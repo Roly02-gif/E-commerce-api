@@ -2,34 +2,34 @@ from rest_framework import serializers
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
+from shop.catalog.utils.validators import validate_against_schema
 from shop.catalog.categories.categoryModel import CategoryModel
 from shop.catalog.products.productModel import (
     ProductModel,
     ProductVariantModel,
-    SizeModel,
 )
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
-    size = serializers.PrimaryKeyRelatedField(
-        queryset=SizeModel.objects.all(), allow_null=True, required=False
-    )
 
     class Meta:
         model = ProductVariantModel
         fields = [
             "id",
             "sku",
-            "color",
-            "size",
             "attributes",
             "price",
             "compare_price",
             "stock_quantity",
         ]
-        extra_kwargs = {
-            "sku": {"required": False},
-        }
+    
+    def validate_attributes(self, value):
+        product = self.context.get('product') or self.instance.product
+        schema = product.category.variant_attribute_schema or {}
+        errors = validate_against_schema(value, schema)
+        if errors:
+            raise serializers.ValidationError(errors)
+        return value
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -43,6 +43,14 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Le nom du produit doit comporter au moins 2 caractères."
             )
+        return value
+    
+    def validate_attributes(self, value):
+        category = self.context.get('category') or self.instance.category
+        schema = category.attribute_schema or {}
+        errors = validate_against_schema(value, schema)
+        if errors:
+            raise serializers.ValidationError(errors)
         return value
 
     class Meta:
@@ -87,22 +95,14 @@ class ProductSerializer(serializers.ModelSerializer):
                             else:
                                 # id provided but not found: create new linked to this product
                                 data = {k: v for k, v in vdata.items() if k != "id"}
-                                ProductVariantModel.objects.create(
-                                    product=instance, **data
-                                )
+                                ProductVariantModel.objects.create(product=instance, **data)
                         else:
-                            ProductVariantModel.objects.create(
-                                product=instance, **vdata
-                            )
+                            ProductVariantModel.objects.create(product=instance, **vdata)
 
                     # Delete variants that were omitted from payload
-                    ids_to_delete = [
-                        vid for vid in existing.keys() if vid not in received_ids
-                    ]
+                    ids_to_delete = [vid for vid in existing.keys() if vid not in received_ids]
                     if ids_to_delete:
-                        ProductVariantModel.objects.filter(
-                            id__in=ids_to_delete
-                        ).delete()
+                        ProductVariantModel.objects.filter(id__in=ids_to_delete).delete()
         except Exception as e:
             raise ValidationError({"detail": str(e)})
         return instance
