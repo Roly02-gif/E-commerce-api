@@ -24,16 +24,30 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         ]
     
     def validate_attributes(self, value):
-        product = self.context.get('product') or self.instance.product
-        schema = product.category.variant_attribute_schema or {}
+        product = self.context.get('product')
+        schema = (product.category.variant_attribute_schema or {}) if product else {}
         errors = validate_against_schema(value, schema)
         if errors:
             raise serializers.ValidationError(errors)
         return value
+    
+
+# --- LECTURE (détail produit, avec variantes en lecture seule) ---
+class ProductDetailSerializer(serializers.ModelSerializer):
+    variants = ProductVariantSerializer(many=True, read_only=True)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=CategoryModel.objects.all(), allow_null=True, required=False
+    )
+
+    class Meta:
+        model = ProductModel
+        fields = ["id", "name", "description", "attributes", "category", "variants", "is_active"]
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    variants = ProductVariantSerializer(many=True)
+
+
+class ProductCreateSerializer(serializers.ModelSerializer):
+    variants = ProductVariantSerializer(many=True, required=False)
     category = serializers.PrimaryKeyRelatedField(
         queryset=CategoryModel.objects.all(), allow_null=True, required=False
     )
@@ -55,54 +69,44 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductModel
-        fields = ["id", "name", "description", "category", "variants"]
+        fields = ["id", "name", "description", "attributes", "category", "variants", "is_active"]
 
+    @transaction.atomic
     def create(self, validated_data):
         variants_data = validated_data.pop("variants", [])
-        try:
-            with transaction.atomic():
-                product = ProductModel.objects.create(**validated_data)
-                for variant in variants_data:
-                    ProductVariantModel.objects.create(product=product, **variant)
-        except Exception as e:
-            raise ValidationError({"detail": str(e)})
+        product = ProductModel.objects.create(**validated_data)
+        schema = product.category.variant_attribute_schema or {}
+        for variant in variants_data:
+            errors = validate_against_schema(variant.get('attributes', {}), schema)
+            if errors:
+                raise serializers.ValidationError({'variants': errors})
+            ProductVariantModel.objects.create(product=product, **variant)
         return product
 
-    def update(self, instance, validated_data):
-        variants_data = validated_data.pop("variants", None)
-        try:
-            with transaction.atomic():
-                for attr, value in validated_data.items():
-                    setattr(instance, attr, value)
-                instance.save()
 
-                if variants_data is not None:
-                    # Map existing variants by id for quick lookup
-                    existing = {v.id: v for v in instance.variants.all()}
-                    received_ids = []
+# --- MODIFICATION (jamais de variantes ici) ---
+class ProductUpdateSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=CategoryModel.objects.all(), allow_null=True, required=False
+    )
+    class Meta:
+        model = ProductModel
+        fields = ["id", "name", "description", "attributes", "category", "is_active"]
+        read_only_fields = ['id', 'date_created', 'date_updated']
 
-                    for vdata in variants_data:
-                        v_id = vdata.get("id", None)
-                        if v_id:
-                            received_ids.append(v_id)
-                            variant = existing.get(v_id)
-                            if variant:
-                                for k, val in vdata.items():
-                                    if k == "id":
-                                        continue
-                                    setattr(variant, k, val)
-                                variant.save()
-                            else:
-                                # id provided but not found: create new linked to this product
-                                data = {k: v for k, v in vdata.items() if k != "id"}
-                                ProductVariantModel.objects.create(product=instance, **data)
-                        else:
-                            ProductVariantModel.objects.create(product=instance, **vdata)
+    def validate(self, data):
+        category = data.get('category', getattr(self.instance, 'category', None))
+        attributes = data.get('attributes', getattr(self.instance, 'attributes', {}) or {})
+        errors = validate_against_schema(attributes, category.attribute_schema or {})
+        if errors:
+            raise serializers.ValidationError({'attributes': errors})
+        return data
 
-                    # Delete variants that were omitted from payload
-                    ids_to_delete = [vid for vid in existing.keys() if vid not in received_ids]
-                    if ids_to_delete:
-                        ProductVariantModel.objects.filter(id__in=ids_to_delete).delete()
-        except Exception as e:
-            raise ValidationError({"detail": str(e)})
-        return instance
+    def to_internal_value(self, data):
+        # bloque explicitement toute tentative d'envoyer 'variants' ici
+        if 'variants' in data:
+            raise serializers.ValidationError({
+                'variants': "Les variantes ne se modifient pas via cet endpoint. "
+                             "Utilisez /products/{id}/variants/{sku}/."
+            })
+        return super().to_internal_value(data)

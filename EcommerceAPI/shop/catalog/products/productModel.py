@@ -12,6 +12,7 @@ class ProductModel(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=255, null=False)
     description = models.TextField(blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
     category = models.ForeignKey(
         CategoryModel, on_delete=models.PROTECT   )
     is_active = models.BooleanField(default=True)
