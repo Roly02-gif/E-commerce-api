@@ -52,6 +52,20 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         queryset=CategoryModel.objects.all(), allow_null=True, required=False
     )
 
+    def _get_category(self):
+        category = self.context.get('category')
+        if category is None and self.instance is not None:
+            category = self.instance.category
+        if category is None:
+            category = self.initial_data.get('category') if hasattr(self, 'initial_data') else None
+        if category is None and hasattr(self, 'validated_data'):
+            category = self.validated_data.get('category')
+        if isinstance(category, CategoryModel):
+            return category
+        if category is None:
+            return None
+        return CategoryModel.objects.filter(pk=category).first()
+
     def validate_name(self, value):
         if len(value) < 2:
             raise serializers.ValidationError(
@@ -60,7 +74,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_attributes(self, value):
-        category = self.context.get('category') or self.instance.category
+        category = self._get_category()
+        if category is None:
+            return value
+
         schema = category.attribute_schema or {}
         errors = validate_against_schema(value, schema)
         if errors:
@@ -96,10 +113,14 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         category = data.get('category', getattr(self.instance, 'category', None))
+        if not isinstance(category, CategoryModel):
+            category = CategoryModel.objects.filter(pk=category).first() if category is not None else None
+
         attributes = data.get('attributes', getattr(self.instance, 'attributes', {}) or {})
-        errors = validate_against_schema(attributes, category.attribute_schema or {})
-        if errors:
-            raise serializers.ValidationError({'attributes': errors})
+        if category is not None:
+            errors = validate_against_schema(attributes, category.attribute_schema or {})
+            if errors:
+                raise serializers.ValidationError({'attributes': errors})
         return data
 
     def to_internal_value(self, data):

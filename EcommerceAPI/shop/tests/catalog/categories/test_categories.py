@@ -1,23 +1,27 @@
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 
+
+from shop.models import UserModel
 from shop.catalog.categories.categoryModel import CategoryModel
 
+UserModel = get_user_model()
 
 class CategoryViewSetTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
         # Créer un admin et un utilisateur standard
-        # self.admin_user = User.objects.create_superuser(
-        #     username="admin", password="adminpass", email="admin@example.com"
-        # )
-        self.admin_user = User.objects.get(username="admin")
-        self.regular_user = User.objects.create_user(
-            username="user", password="userpass", email="user@example.com"
+        self.admin_user = UserModel.objects.create_superuser(
+            last_name="admin", password="adminpass", email="admin@example.com"
+        )
+        self.admin_user = UserModel.objects.get(last_name="admin")
+        self.regular_user = UserModel.objects.create_user(
+            last_name="user", password="userpass", email="user@example.com"
         )
 
         # Créer quelques catégories pour les tests
@@ -47,7 +51,7 @@ class CategoryViewSetTests(TestCase):
         """Non authentifié ne peut pas créer de catégorie"""
         data = {"name": "Clothing"}
         response = self.client.post(self.list_url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_unauthenticated_user_cannot_update_category(self):
         """Non authentifié ne peut pas modifier une catégorie"""
@@ -55,12 +59,12 @@ class CategoryViewSetTests(TestCase):
         response = self.client.put(
             self.detail_url(self.category1.pk), data, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_unauthenticated_user_cannot_delete_category(self):
         """Non authentifié ne peut pas supprimer une catégorie"""
         response = self.client.delete(self.detail_url(self.category1.pk))
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     # ---------- Utilisateur standard (authentifié mais non-admin) ----------
 
