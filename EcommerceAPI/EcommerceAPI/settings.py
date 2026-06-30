@@ -85,7 +85,7 @@ DATABASES = {
         "OPTIONS": {
             "host": os.getenv("PG_HOST"),
             "user": os.getenv("PG_USER"),
-            "port": os.getenv("PG_PORT", "5432"),
+            "port": os.getenv("PG_PORT_EXPOSE", "5432"),
             "password": os.getenv("PG_PWD"),
         },
     }

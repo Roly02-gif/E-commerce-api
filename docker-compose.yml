@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ./EcommerceAPI
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+    volumes:
+      - ./keys:/keys
+  
+  db:
+    image: postgres:17.10-alpine
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PWD}
+      POSTGRES_DB: ${PG_NAME}
+    ports:
+      - "5433:${PG_PORT_EXPOSE}"
+    restart: always

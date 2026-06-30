@@ -1,0 +1,17 @@
+[project]
+name = "ecommerceapi"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "asgiref==3.11.0",
+    "cryptography>=49.0.0",
+    "django==5.2.10",
+    "djangorestframework==3.16.1",
+    "djangorestframework-simplejwt==5.5.1",
+    "psycopg2-binary>=2.9.12",
+    "python-dotenv==1.2.1",
+    "sqlparse==0.5.5",
+    "typing-extensions==4.15.0",
+]
