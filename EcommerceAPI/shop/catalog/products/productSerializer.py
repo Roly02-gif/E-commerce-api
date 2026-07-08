@@ -47,7 +47,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
-    variants = ProductVariantSerializer(many=True, required=False)
+    variants = ProductVariantSerializer(many=True, required=True)
     category = serializers.PrimaryKeyRelatedField(
         queryset=CategoryModel.objects.all(), allow_null=True, required=False
     )

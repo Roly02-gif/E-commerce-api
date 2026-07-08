@@ -14,6 +14,9 @@ from datetime import timedelta
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
+
+# from shop.catalog.payments.providers.base import PaymentProvider
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -43,6 +46,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "shop",
     "rest_framework_simplejwt",
+    "django_celery_beat"
 ]
 
 MIDDLEWARE = [
@@ -170,6 +174,40 @@ SIMPLE_JWT = {
     "CHECK_USER_IS_ACTIVE": True,
 }
 
+
+# Celery configuration
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND')
+
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # évite qu'un worker accapare trop de tâches de paiement d'un coup
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True  # annule les tâches longues si le worker perd la connexion au broker
+
+CELERY_TIMEZONE = 'Europe/Paris'
+
+# Queue dédiée aux paiements, séparée du reste (emails, notifs...)
+CELERY_TASK_ROUTES = {
+    '*shop.catalog.payments.paymentTasks.*': {'queue': 'payments'},
+}
+
+CELERY_BEAT_SCHEDULE = {
+    'release-expired-stock-reservations': {
+        'task': '*shop.catalog.orders.OrdersTasks.release_expired_reservations',
+        'schedule': crontab(minute='*/5'),  # toutes les 5 minutes
+    },
+}
+
+# Payment provider configuration
+DEFAULT_PAYMENT_PROVIDER = 'STRIPE'
+
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

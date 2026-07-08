@@ -41,6 +41,11 @@ class ProductVariantModel(models.Model):
         max_digits=10, decimal_places=2, blank=True, null=True
     )
     stock_quantity = models.PositiveIntegerField(default=0)
+    reserved = models.PositiveIntegerField(default=0)  
+
+    @property
+    def available_stock(self):
+        return max(self.stock_quantity - self.reserved, 0)
 
     def save(self, *args, **kwargs):
         if not self.sku:

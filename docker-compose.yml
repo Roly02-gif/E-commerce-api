@@ -8,6 +8,8 @@ services:
     env_file: .env
     depends_on:
       - db
+      - rabbitmq
+      - redis
     volumes:
       - ./keys:/keys
   
@@ -21,3 +23,58 @@ services:
     ports:
       - "5433:${PG_PORT_EXPOSE}"
     restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PWD}
+    ports:
+        - "5672:5672"
+        - "15672:15672"
+    restart: always
+  
+  redis:
+    image: redis:8.8-alpine
+    env_file: .env
+    ports:
+      - "6379:6379"
+    restart: always
+  
+  celery_worker:
+    build: 
+      context: ./EcommerceAPI
+      dockerfile: Dockerfile
+    command: uv run celery -A EcommerceAPI worker -l INFO -Q payments -n payments@%h
+    env_file:
+      - .env
+    volumes:
+      - ./keys:/keys
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+  
+  celery_beat:
+    build:
+      context: ./EcommerceAPI
+      dockerfile: Dockerfile
+    command: celery -A EcommerceAPI beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./EcommerceAPI:/app
+      - /app/.venv
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+    restart: always
+  
+
+      
+volumes:
+  postgres_data:

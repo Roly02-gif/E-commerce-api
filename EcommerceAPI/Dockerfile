@@ -2,6 +2,8 @@ FROM python:3.10-alpine
 
 WORKDIR /app
 
+ENV PYTHONUNBUFFERED=1
+
 RUN pip install uv
 
 COPY pyproject.toml uv.lock ./
